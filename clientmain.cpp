@@ -1,6 +1,9 @@
+//Try push
+//Try commit?
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
 /* You will to add includes here */
 
 // Enable if you want debugging to be printed, see examble below.
@@ -20,8 +23,6 @@ int main(int argc, char *argv[]){
     exit(EXIT_FAILURE);
   }
   
-
-    
   /*
     Read first input, assumes <ip>:<port> syntax, convert into one string (Desthost) and one integer (port). 
      Atm, works only on dotted notation, i.e. IPv4 and DNS. IPv6 does not work if its using ':'. 
