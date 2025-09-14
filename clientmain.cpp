@@ -205,12 +205,35 @@ int main(int argc, char *argv[]){
     }
   }
 
+  fd_set reading;
+  struct timeval timeout;
+  int rc;
+
+  FD_ZERO(&reading);
+  FD_SET(sockfd, &reading);
+
+  memset( &timeout, 0, sizeof(timeout) );
+  timeout.tv_sec = 2;
+
   while(true){
       char buf[1500];
       struct sockaddr_storage addr;
       socklen_t addr_len = sizeof(addr);
+      ssize_t byte_size;
 
-      ssize_t byte_size = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr*)&addr, &addr_len);
+      rc = select(sockfd+1, &reading, NULL, NULL, &timeout);
+
+      if(rc > 0){
+        byte_size = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr*)&addr, &addr_len);
+      }else if(rc == 0){
+          freeaddrinfo(results);
+          close(sockfd);
+          fprintf(stderr, "ERROR: TIMEOUT\n");
+          return EXIT_FAILURE;
+      }else{
+        perror("select");
+      }
+     
       if(byte_size <= 0)
       {
         freeaddrinfo(results);
