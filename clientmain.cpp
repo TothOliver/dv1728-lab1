@@ -23,6 +23,8 @@
 int udp_client(const char *host, const char *port, const char *path);
 int tcp_client(const char *host, const char *port, const char *path);
 
+int calc(const char arith[], int v1, int v2);
+
 int main(int argc, char *argv[]){
   
   
@@ -151,7 +153,7 @@ int main(int argc, char *argv[]){
     return udp_client(Desthost, Destport, Destpath);
   }
   else if((strcmp(protocol, "TCP") == 0 || strcmp(protocol, "tcp") == 0) && strcmp(Destpath, "text") == 0){
-
+    return tcp_client(Desthost, Destport, Destpath);
   }
   else{
     fprintf(stderr, "Error: Protocol or path not supported\n");
@@ -201,6 +203,7 @@ int udp_client(const char *host, const char *port, const char *path){
       return EXIT_FAILURE;
     }
   }
+
   if(strcmp(path, "binary") == 0){
     calcMessage cmsg = {0};
     cmsg.type = htons(22);
@@ -413,5 +416,149 @@ int udp_client(const char *host, const char *port, const char *path){
 }
 
 int tcp_client(const char *host, const char *port, const char *path){
+  struct addrinfo hints, *results;
+  int sockfd, con;
+
+  memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+
+  int status = getaddrinfo(host, port, &hints, &results);
+  if(status != 0 || results == NULL)
+  {
+    fprintf(stderr, "ERROR: Ressolve Issue");
+    return EXIT_FAILURE;
+  }
+
+  for(struct addrinfo *p = results; p != NULL; p = p->ai_next) {
+    sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+    if(sockfd == -1) {
+      continue;
+    }
+
+    con = connect(sockfd, p->ai_addr, p->ai_addrlen);
+    if(con == -1) {
+      close(sockfd);
+      continue;
+    }
+    break;
+  }
+
+  if(sockfd == -1){
+    fprintf(stderr, "ERROR: socket failed\n");
+    return EXIT_FAILURE;
+  }
+  if(con == -1){
+    close(sockfd);
+    fprintf(stderr, "ERROR: connectfailed\n");
+    return EXIT_FAILURE;
+  }
+  
+  if(strcmp(path, "binary") == 0){
+
+  }
+  else if(strcmp(path, "text") == 0){
+    char buf[1500];
+    memset(&buf, 0, sizeof(buf));
+    ssize_t byte_size;
+    
+    byte_size = read(sockfd, buf, sizeof(buf));
+    if(byte_size <= 0){
+      freeaddrinfo(results);
+      close(sockfd);
+      fprintf(stderr, "ERROR: read failed!\n");
+      return EXIT_FAILURE;
+    }
+
+    if(strcmp(buf, "TEXT TCP 1.1\n") == 0){
+      freeaddrinfo(results);
+      close(sockfd);
+      fprintf(stderr, "ERROR: MISSMATCH PROTOCOL\n");
+      return EXIT_FAILURE;
+    }
+
+    printf("%s", buf);
+
+    char tmsg[] = "TEXT TCP 1.1 OK\n";
+
+    ssize_t sent = write(sockfd, tmsg, strlen(tmsg));
+    if(sent == -1){
+      freeaddrinfo(results);
+      close(sockfd);
+      fprintf(stderr, "ERROR: sendto failed\n");
+      return EXIT_FAILURE;
+    }
+    printf("%s", tmsg);
+
+    memset(&buf, 0, sizeof(buf));
+    
+    byte_size = read(sockfd, buf, sizeof(buf));
+    if(byte_size <= 0){
+      freeaddrinfo(results);
+      close(sockfd);
+      fprintf(stderr, "ERROR: read failed!\n");
+      return EXIT_FAILURE;
+    }
+    printf("%s", buf);
+
+    char arith[4];
+    int v1, v2;
+
+    if(sscanf(buf, "%3s %d %d", arith, &v1, &v2) != 3){
+      fprintf(stderr, "ERROR: sscanf failed!\n");
+      return EXIT_FAILURE;
+    }
+
+    int res = calc(arith, v1, v2);
+    printf("%d\n", res);
+    snprintf(buf, sizeof(buf), "%d\n", res);
+
+    sent = write(sockfd, buf, strlen(buf));
+    if(sent == -1){
+      freeaddrinfo(results);
+      close(sockfd);
+      fprintf(stderr, "ERROR: sendto failed\n");
+      return EXIT_FAILURE;
+    }
+
+    memset(&buf, 0, sizeof(buf));
+    
+    byte_size = read(sockfd, buf, sizeof(buf));
+    if(byte_size <= 0){
+      freeaddrinfo(results);
+      close(sockfd);
+      fprintf(stderr, "ERROR: read failed!\n");
+      return EXIT_FAILURE;
+    }
+    printf("%s", buf);
+
+  }
+  else{
+
+  }
+
   return EXIT_SUCCESS;
+}
+
+int calc(const char arith[], int v1, int v2){
+  int result;
+
+  if(strcmp(arith, "add") == 0){
+    result = v1 + v2;
+  }
+  else if(strcmp(arith, "sub") == 0){
+    result = v1 - v2;      
+  }
+  else if(strcmp(arith, "mul") == 0){
+    result = v1 * v2;
+  }
+  else if(strcmp(arith, "div") == 0){
+    result = v1 / v2;
+  }
+  else{
+    fprintf(stderr, "ERROR: invalid operation\n");
+  return EXIT_FAILURE;
+  }
+
+  return result;
 }
