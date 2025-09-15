@@ -149,11 +149,13 @@ int main(int argc, char *argv[]){
   printf("Host %s and port %s.\n",Desthost, Destport);
 #endif
   
-  if((strcmp(protocol, "UDP") == 0 || strcmp(protocol, "udp") == 0) && ((strcmp(Destpath, "binary") == 0) || (strcmp(Destpath, "text") == 0))){
-    return udp_client(Desthost, Destport, Destpath);
+  if((strcmp(protocol, "UDP") == 0 || strcmp(protocol, "udp") == 0)){
+    if((strcmp(Destpath, "BINARY") == 0) || (strcmp(Destpath, "binary") == 0) || (strcmp(Destpath, "TEXT") == 0) || (strcmp(Destpath, "text") == 0))
+      return udp_client(Desthost, Destport, Destpath);
   }
-  else if((strcmp(protocol, "TCP") == 0 || strcmp(protocol, "tcp") == 0) && ((strcmp(Destpath, "binary") == 0) || ((strcmp(Destpath, "text") == 0) || (strcmp(Destpath, "TEXT") == 0)))){
-    return tcp_client(Desthost, Destport, Destpath);
+  else if((strcmp(protocol, "TCP") == 0 || strcmp(protocol, "tcp") == 0)){
+    if((strcmp(Destpath, "BINARY") == 0) || (strcmp(Destpath, "binary") == 0) || (strcmp(Destpath, "TEXT") == 0) || (strcmp(Destpath, "text") == 0))
+      return tcp_client(Desthost, Destport, Destpath);
   }
   else if ((strcmp(protocol, "ANY") == 0 || strcmp(protocol, "any") == 0) && strcmp(Destpath, "text") == 0){
 
@@ -207,7 +209,7 @@ int udp_client(const char *host, const char *port, const char *path){
     }
   }
 
-  if(strcmp(path, "binary") == 0){
+  if((strcmp(path, "BINARY") == 0) || (strcmp(path, "binary") == 0)){
     calcMessage cmsg = {0};
     cmsg.type = htons(22);
     cmsg.message = htons(0);
@@ -316,7 +318,7 @@ int udp_client(const char *host, const char *port, const char *path){
         }
   }
 
-  else if(strcmp(path, "text") == 0){
+  else if((strcmp(path, "TEXT") == 0) || (strcmp(path, "text") == 0)){
     char tmsg[] = "TEXT UDP 1.1\n";
 
     ssize_t sent = sendto(sockfd, tmsg, strlen(tmsg), 0, results->ai_addr, results->ai_addrlen);
@@ -461,7 +463,7 @@ int tcp_client(const char *host, const char *port, const char *path){
   struct timeval timeout;
   int rc;
   
-  if(strcmp(path, "binary") == 0){
+  if((strcmp(path, "BINARY") == 0) || (strcmp(path, "binary") == 0)){
     char buf[1500];
     memset(&buf, 0, sizeof(buf));
     ssize_t byte_size;
@@ -577,7 +579,7 @@ int tcp_client(const char *host, const char *port, const char *path){
 
   }
   
-  else if(strcmp(path, "text") == 0){
+  else if((strcmp(path, "TEXT") == 0) || (strcmp(path, "text") == 0)){
     char buf[1500];
     memset(&buf, 0, sizeof(buf));
     ssize_t byte_size;;
