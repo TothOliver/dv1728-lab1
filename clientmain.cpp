@@ -469,10 +469,9 @@ int tcp_client(const char *host, const char *port, const char *path){
   else if(strcmp(path, "text") == 0){
     char buf[1500];
     memset(&buf, 0, sizeof(buf));
-    ssize_t byte_size = 0;
-    printf("Byte_size: %lu", byte_size);
-    byte_size = read(sockfd, buf, sizeof(buf));
-    if(byte_size <= 0){
+    ssize_t byte_size;;
+
+    if((byte_size = read(sockfd, buf, sizeof(buf))) <= 0){
       freeaddrinfo(results);
       close(sockfd);
       fprintf(stderr, "ERROR: read failed!\n");
