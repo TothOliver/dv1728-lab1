@@ -146,8 +146,8 @@ int main(int argc, char *argv[]){
     return 1;
   }
 #ifdef DEBUG 
-  printf("Protocol: %s Host %s, port = %d and path = %s.\n",protocol, Desthost,port, Destpath);
-
+  printf("Host %s and port %s.\n",Desthost, Destport);
+#endif
   
   if((strcmp(protocol, "UDP") == 0 || strcmp(protocol, "udp") == 0) && (strcmp(Destpath, "binary") == 0 || (strcmp(Destpath, "text") == 0))){
     return udp_client(Desthost, Destport, Destpath);
@@ -155,12 +155,18 @@ int main(int argc, char *argv[]){
   else if((strcmp(protocol, "TCP") == 0 || strcmp(protocol, "tcp") == 0) && strcmp(Destpath, "text") == 0){
     return tcp_client(Desthost, Destport, Destpath);
   }
+  else if ((strcmp(protocol, "ANY") == 0 || strcmp(protocol, "any") == 0) && strcmp(Destpath, "text") == 0){
+    int any = tcp_client(Desthost, Destport, Destpath);
+    if(any == EXIT_FAILURE){
+      udp_client(Desthost, Destport, Destpath);
+    }
+  }
   else{
     fprintf(stderr, "Error: Protocol or path not supported\n");
     return EXIT_FAILURE;
   }
   
-#endif
+
 }
 
 int udp_client(const char *host, const char *port, const char *path){
@@ -470,14 +476,22 @@ int tcp_client(const char *host, const char *port, const char *path){
       return EXIT_FAILURE;
     }
 
-    if(strcmp(buf, "TEXT TCP 1.1\n") == 0){
+    printf("%s", buf);
+
+    char *line = strtok(buf, "\n");
+    while(line != NULL){
+      if(strcmp(line, "TEXT TCP 1.1") == 0)
+        break;
+      line = strtok(NULL, "\n");
+    }
+    if(line == NULL){
       freeaddrinfo(results);
       close(sockfd);
+      #ifdef DEBUG
       fprintf(stderr, "ERROR: MISSMATCH PROTOCOL\n");
+      #endif
       return EXIT_FAILURE;
     }
-
-    printf("%s", buf);
 
     char tmsg[] = "TEXT TCP 1.1 OK\n";
 
