@@ -152,14 +152,11 @@ int main(int argc, char *argv[]){
   if((strcmp(protocol, "UDP") == 0 || strcmp(protocol, "udp") == 0) && ((strcmp(Destpath, "binary") == 0) || (strcmp(Destpath, "text") == 0))){
     return udp_client(Desthost, Destport, Destpath);
   }
-  else if((strcmp(protocol, "TCP") == 0 || strcmp(protocol, "tcp") == 0) && ((strcmp(Destpath, "binary") == 0) || (strcmp(Destpath, "text") == 0))){
+  else if((strcmp(protocol, "TCP") == 0 || strcmp(protocol, "tcp") == 0) && ((strcmp(Destpath, "binary") == 0) || ((strcmp(Destpath, "text") == 0) || (strcmp(Destpath, "TEXT") == 0)))){
     return tcp_client(Desthost, Destport, Destpath);
   }
   else if ((strcmp(protocol, "ANY") == 0 || strcmp(protocol, "any") == 0) && strcmp(Destpath, "text") == 0){
-    int any = tcp_client(Desthost, Destport, Destpath);
-    if(any == EXIT_FAILURE){
-      udp_client(Desthost, Destport, Destpath);
-    }
+
   }
   else{
     fprintf(stderr, "Error: Protocol or path not supported\n");
