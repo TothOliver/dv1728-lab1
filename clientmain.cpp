@@ -226,12 +226,9 @@ int udp_client(const char *host, const char *port, const char *path){
       return EXIT_FAILURE;
     }
   
-
     fd_set reading;
     struct timeval timeout;
     int rc;
-
-
 
     while(true){
         char buf[1500];
@@ -462,13 +459,35 @@ int tcp_client(const char *host, const char *port, const char *path){
     freeaddrinfo(results);
     return EXIT_FAILURE;
   }
+
+  fd_set reading;
+  struct timeval timeout;
+  int rc;
   
   if(strcmp(path, "binary") == 0){
     char buf[1500];
     memset(&buf, 0, sizeof(buf));
-    ssize_t byte_size;;
+    ssize_t byte_size;
 
-    if((byte_size = read(sockfd, buf, sizeof(buf))) <= 0){
+    FD_ZERO(&reading);
+    FD_SET(sockfd, &reading);
+    memset(&timeout, 0, sizeof(timeout));
+
+    timeout.tv_sec = 2;
+    rc = select(sockfd+1, &reading, NULL, NULL, &timeout);
+
+    if(rc > 0){
+      byte_size = read(sockfd, buf, sizeof(buf));
+    }else if(rc == 0){
+      freeaddrinfo(results);
+      close(sockfd);
+      fprintf(stderr, "ERROR: TIMEOUT\n");
+      return EXIT_FAILURE;
+    }else{
+      perror("select");
+    }    
+
+    if(byte_size <= 0){
       freeaddrinfo(results);
       close(sockfd);
       fprintf(stderr, "ERROR: read failed!\n");
@@ -565,8 +584,26 @@ int tcp_client(const char *host, const char *port, const char *path){
     char buf[1500];
     memset(&buf, 0, sizeof(buf));
     ssize_t byte_size;;
+    
+    FD_ZERO(&reading);
+    FD_SET(sockfd, &reading);
+    memset(&timeout, 0, sizeof(timeout));
 
-    if((byte_size = read(sockfd, buf, sizeof(buf))) <= 0){
+    timeout.tv_sec = 2;
+    rc = select(sockfd+1, &reading, NULL, NULL, &timeout);
+
+    if(rc > 0){
+      byte_size = read(sockfd, buf, sizeof(buf));
+    }else if(rc == 0){
+      freeaddrinfo(results);
+      close(sockfd);
+      fprintf(stderr, "ERROR: TIMEOUT\n");
+      return EXIT_FAILURE;
+    }else{
+      perror("select");
+    }  
+
+    if(byte_size <= 0){
       freeaddrinfo(results);
       close(sockfd);
       fprintf(stderr, "ERROR: read failed!\n");
@@ -638,9 +675,6 @@ int tcp_client(const char *host, const char *port, const char *path){
       return EXIT_FAILURE;
     }
     printf("%s", buf);
-
-  }
-  else{
 
   }
 
