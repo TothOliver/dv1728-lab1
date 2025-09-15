@@ -27,8 +27,6 @@ int calc(const char arith[], int v1, int v2);
 
 int main(int argc, char *argv[]){
   
-  
-  
   if (argc < 2) {
     fprintf(stderr, "Usage: %s protocol://server:port/path.\n", argv[0]);
     exit(EXIT_FAILURE);
@@ -50,7 +48,6 @@ int main(int argc, char *argv[]){
       return 1;
     }
     
-
     // Find the position of "://"
     char *proto_end = strstr(input, "://");
     if (!proto_end) {
@@ -133,8 +130,6 @@ int main(int argc, char *argv[]){
       
   // *Desthost now points to a sting holding whatever came before the delimiter, ':'.
   // *Dstport points to whatever string came after the delimiter. 
-
-
     
   /* Do magic */
   int port=atoi(Destport);
@@ -157,8 +152,28 @@ int main(int argc, char *argv[]){
     if((strcmp(Destpath, "BINARY") == 0) || (strcmp(Destpath, "binary") == 0) || (strcmp(Destpath, "TEXT") == 0) || (strcmp(Destpath, "text") == 0))
       return tcp_client(Desthost, Destport, Destpath);
   }
-  else if ((strcmp(protocol, "ANY") == 0 || strcmp(protocol, "any") == 0) && strcmp(Destpath, "text") == 0){
+  else if((strcmp(protocol, "ANY") == 0 || strcmp(protocol, "any") == 0)){
+    if((strcmp(Destpath, "BINARY") == 0) || (strcmp(Destpath, "binary") == 0) || (strcmp(Destpath, "TEXT") == 0) || (strcmp(Destpath, "text") == 0)){
+        
+        int any = tcp_client(Desthost, Destport, Destpath);
+        if(any == EXIT_SUCCESS){
+          printf("Protocol: TCP\n");
+          return EXIT_SUCCESS;
+        }
 
+        any = udp_client(Desthost, Destport, Destpath);
+        if(any == EXIT_SUCCESS){
+          printf("Protocol: UDP\n");
+          return EXIT_SUCCESS;
+        }
+
+        fprintf(stderr, "Error: Protocol or path not supported\n");
+        return EXIT_FAILURE;
+    }
+    else{
+      fprintf(stderr, "Error: Protocol or path not supported\n");
+      return EXIT_FAILURE;
+    }
   }
   else{
     fprintf(stderr, "Error: Protocol or path not supported\n");
@@ -184,7 +199,7 @@ int udp_client(const char *host, const char *port, const char *path){
   }
 
   char ipstr[INET6_ADDRSTRLEN]; 
-  for(struct addrinfo *p = results; p != NULL; p = p->ai_next) {
+  for(struct addrinfo *p = results; p != NULL; p = p->ai_next){
     void *addr;
 
     if(p->ai_family == AF_INET){
