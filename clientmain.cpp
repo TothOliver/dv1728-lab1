@@ -432,7 +432,7 @@ int tcp_client(const char *host, const char *port, const char *path){
   int status = getaddrinfo(host, port, &hints, &results);
   if(status != 0 || results == NULL)
   {
-    fprintf(stderr, "ERROR: Ressolve Issue");
+    fprintf(stderr, "ERROR: RESOLVE ISSUE");
     return EXIT_FAILURE;
   }
 
@@ -445,18 +445,21 @@ int tcp_client(const char *host, const char *port, const char *path){
     con = connect(sockfd, p->ai_addr, p->ai_addrlen);
     if(con == -1) {
       close(sockfd);
+      sockfd = -1;
       continue;
     }
     break;
   }
 
   if(sockfd == -1){
+    #ifdef DEBUG 
     fprintf(stderr, "ERROR: socket failed\n");
+    #endif
     return EXIT_FAILURE;
   }
   if(con == -1){
-    close(sockfd);
-    fprintf(stderr, "ERROR: connectfailed\n");
+    fprintf(stderr, "ERROR: CANT CONNECT TO %s\n", host);
+    freeaddrinfo(results);
     return EXIT_FAILURE;
   }
   
