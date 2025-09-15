@@ -149,10 +149,10 @@ int main(int argc, char *argv[]){
   printf("Host %s and port %s.\n",Desthost, Destport);
 #endif
   
-  if((strcmp(protocol, "UDP") == 0 || strcmp(protocol, "udp") == 0) && (strcmp(Destpath, "binary") == 0 || (strcmp(Destpath, "text") == 0))){
+  if((strcmp(protocol, "UDP") == 0 || strcmp(protocol, "udp") == 0) && ((strcmp(Destpath, "binary") == 0) || (strcmp(Destpath, "text") == 0))){
     return udp_client(Desthost, Destport, Destpath);
   }
-  else if((strcmp(protocol, "TCP") == 0 || strcmp(protocol, "tcp") == 0) && strcmp(Destpath, "text") == 0){
+  else if((strcmp(protocol, "TCP") == 0 || strcmp(protocol, "tcp") == 0) && ((strcmp(Destpath, "binary") == 0) || (strcmp(Destpath, "text") == 0))){
     return tcp_client(Desthost, Destport, Destpath);
   }
   else if ((strcmp(protocol, "ANY") == 0 || strcmp(protocol, "any") == 0) && strcmp(Destpath, "text") == 0){
@@ -180,7 +180,7 @@ int udp_client(const char *host, const char *port, const char *path){
   int status = getaddrinfo(host, port, &hints, &results);
   if(status != 0 || results == NULL)
   {
-    fprintf(stderr, "ERROR: Ressolve Issue");
+    fprintf(stderr, "ERROR: RESOLVE ISSUE");
     return EXIT_FAILURE;
   }
 
@@ -464,8 +464,103 @@ int tcp_client(const char *host, const char *port, const char *path){
   }
   
   if(strcmp(path, "binary") == 0){
+    char buf[1500];
+    memset(&buf, 0, sizeof(buf));
+    ssize_t byte_size;;
+
+    if((byte_size = read(sockfd, buf, sizeof(buf))) <= 0){
+      freeaddrinfo(results);
+      close(sockfd);
+      fprintf(stderr, "ERROR: read failed!\n");
+      return EXIT_FAILURE;
+    }
+
+    printf("%s", buf);
+
+    char *line = strtok(buf, "\n");
+    while(line != NULL){
+      if(strcmp(line, "TEXT TCP 1.1") == 0)
+        break;
+      line = strtok(NULL, "\n");
+    }
+    if(line == NULL){
+      freeaddrinfo(results);
+      close(sockfd);
+      fprintf(stderr, "ERROR: MISSMATCH PROTOCOL\n");
+      return EXIT_FAILURE;
+    }
+
+    char tmsg[] = "BINARY TCP 1.1 OK\n";
+
+    ssize_t sent = write(sockfd, tmsg, strlen(tmsg));
+    if(sent == -1){
+      freeaddrinfo(results);
+      close(sockfd);
+      fprintf(stderr, "ERROR: sendto failed\n");
+      return EXIT_FAILURE;
+    }
+    printf("%s", tmsg);
+
+    if((byte_size = read(sockfd, buf, sizeof(buf))) <= 0){
+      freeaddrinfo(results);
+      close(sockfd);
+      fprintf(stderr, "ERROR: read failed!\n");
+      return EXIT_FAILURE;
+    }
+    if(byte_size == sizeof(calcProtocol)){
+      calcProtocol respons;
+      memcpy(&respons, buf, sizeof(respons));
+
+      uint32_t arith = ntohl(respons.arith);
+      int32_t inValue1 = ntohl(respons.inValue1);
+      int32_t inValue2 = ntohl(respons.inValue2);
+      const char *arithText = NULL;
+
+      switch (arith) {
+        case 1: arithText = "add"; break;
+        case 2: arithText = "sub"; break;
+        case 3: arithText = "mul"; break;
+        case 4: arithText = "div"; break;
+        default: break;
+      }
+
+      int res = calc(arithText, inValue1, inValue2);
+
+      respons.type = htons(2);
+      respons.inResult = htonl(res);
+
+      sent = write(sockfd, &respons, sizeof(respons));
+      if(sent == -1){
+        freeaddrinfo(results);
+        close(sockfd);
+        fprintf(stderr, "ERROR: sendto failed\n");
+        return EXIT_FAILURE;
+      }
+
+      if((byte_size = read(sockfd, buf, sizeof(buf))) <= 0){
+        freeaddrinfo(results);
+        close(sockfd);
+        fprintf(stderr, "ERROR: read failed!\n");
+        return EXIT_FAILURE;
+      }
+
+      calcMessage r2;         
+      memcpy(&r2, buf, sizeof(r2));
+      uint32_t message = ntohl(r2.message);
+
+      if(message == 1){
+        printf("Server reply: OK\n");
+        return EXIT_SUCCESS;
+      }       
+      if(message == 2){
+        printf("Server reply: NOT OK\n");
+        return EXIT_FAILURE;
+      }  
+
+    }
 
   }
+  
   else if(strcmp(path, "text") == 0){
     char buf[1500];
     memset(&buf, 0, sizeof(buf));
@@ -513,7 +608,6 @@ int tcp_client(const char *host, const char *port, const char *path){
       fprintf(stderr, "ERROR: read failed!\n");
       return EXIT_FAILURE;
     }
-    printf("%s", buf);
 
     char arith[4];
     int v1, v2;
@@ -524,7 +618,6 @@ int tcp_client(const char *host, const char *port, const char *path){
     }
 
     int res = calc(arith, v1, v2);
-    printf("%d\n", res);
     snprintf(buf, sizeof(buf), "%d\n", res);
 
     sent = write(sockfd, buf, strlen(buf));
@@ -557,6 +650,7 @@ int tcp_client(const char *host, const char *port, const char *path){
 int calc(const char arith[], int v1, int v2){
   int result;
 
+
   if(strcmp(arith, "add") == 0){
     result = v1 + v2;
   }
@@ -573,6 +667,9 @@ int calc(const char arith[], int v1, int v2){
     fprintf(stderr, "ERROR: invalid operation\n");
   return EXIT_FAILURE;
   }
+
+  printf("%s %d %d\n", arith, v1, v2);
+  printf("Result: %d\n", result);
 
   return result;
 }
