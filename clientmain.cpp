@@ -23,7 +23,7 @@
 int udp_client(const char *host, const char *port, const char *path);
 int tcp_client(const char *host, const char *port, const char *path);
 
-int calc(const char arith[], int v1, int v2);
+int calc(const char arith[], uint32_t arithNum, int32_t v1, int32_t v2);
 
 int main(int argc, char *argv[]){
   
@@ -179,8 +179,6 @@ int main(int argc, char *argv[]){
     fprintf(stderr, "Error: Protocol or path not supported\n");
     return EXIT_FAILURE;
   }
-  
-
 }
 
 int udp_client(const char *host, const char *port, const char *path){
@@ -198,30 +196,17 @@ int udp_client(const char *host, const char *port, const char *path){
     return EXIT_FAILURE;
   }
 
-  char ipstr[INET6_ADDRSTRLEN]; 
   for(struct addrinfo *p = results; p != NULL; p = p->ai_next){
-    void *addr;
-
-    if(p->ai_family == AF_INET){
-      struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
-      addr = &(ipv4->sin_addr);
-    }
-    else if(p->ai_family == AF_INET6){
-      struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
-      addr = &(ipv6->sin6_addr);
-    }
-    else {
-      fprintf(stderr, "Error: Not a valid IP-version\n");
-      return EXIT_FAILURE;
-    }
-
-    inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr);
-
     sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-    if(sockfd == -1) {
-      fprintf(stderr, "ERROR: socket failed\n");
-      return EXIT_FAILURE;
+    if(sockfd == -1){
+      continue;
     }
+    break;
+  }
+
+  if(sockfd == -1){
+    fprintf(stderr, "ERROR: CANT CONNECT TO %d\n", sockfd);
+    return EXIT_FAILURE;
   }
 
   if((strcmp(path, "BINARY") == 0) || (strcmp(path, "binary") == 0)){
@@ -245,92 +230,79 @@ int udp_client(const char *host, const char *port, const char *path){
     int rc;
 
     while(true){
-        char buf[1500];
-        struct sockaddr_storage addr;
-        socklen_t addr_len = sizeof(addr);
-        ssize_t byte_size;
+      char buf[1500];
+      struct sockaddr_storage addr;
+      socklen_t addr_len = sizeof(addr);
+      ssize_t byte_size;
 
-        FD_ZERO(&reading);
-        FD_SET(sockfd, &reading);
-        memset(&timeout, 0, sizeof(timeout));
+      FD_ZERO(&reading);
+      FD_SET(sockfd, &reading);
+      memset(&timeout, 0, sizeof(timeout));
 
-        timeout.tv_sec = 2;
-        rc = select(sockfd+1, &reading, NULL, NULL, &timeout);
+      timeout.tv_sec = 2;
+      rc = select(sockfd+1, &reading, NULL, NULL, &timeout);
 
-        if(rc > 0){
-          byte_size = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr*)&addr, &addr_len);
-        }else if(rc == 0){
-            freeaddrinfo(results);
-            close(sockfd);
-            fprintf(stderr, "ERROR: TIMEOUT\n");
-            return EXIT_FAILURE;
-        }else{
-          perror("select");
-        }
+      if(rc > 0){
+        byte_size = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr*)&addr, &addr_len);
+      }else if(rc == 0){
+        freeaddrinfo(results);
+        close(sockfd);
+        fprintf(stderr, "ERROR: MESSAGE LOST (TIMEOUT)\n");
+        return EXIT_FAILURE;
+      }else{
+        fprintf(stderr, "ERROR: SELECT\n");
+        return EXIT_FAILURE;
+      }
         
-        if(byte_size <= 0)
-        {
+      if(byte_size <= 0){
+        freeaddrinfo(results);
+        close(sockfd);
+        break;
+      }
+      else if(byte_size == sizeof(calcMessage)){ //12 bytes
+        calcMessage respons;            
+        memcpy(&respons, buf, sizeof(respons));
+
+        uint32_t message = ntohl(respons.message);
+
+        if(message == 1){
+          printf("OK\n");
+          return EXIT_SUCCESS;
+        }       
+        if(message == 2){
+          printf("NOT OK\n");
+          return EXIT_FAILURE;
+        }       
+      }
+      else if(byte_size == sizeof(calcProtocol)){ //26 bytes
+        calcProtocol respons;
+        memcpy(&respons, buf, sizeof(respons));
+
+        uint32_t arith = ntohl(respons.arith);
+        int32_t inValue1 = ntohl(respons.inValue1);
+        int32_t inValue2 = ntohl(respons.inValue2);
+        int32_t inResult = 0;
+        const char arithText[] = {};
+            
+        inResult = calc(arithText, arith, inValue1, inValue2);
+
+        respons.type = htons(2);
+        respons.inResult = htonl(inResult);
+
+        ssize_t sent = sendto(sockfd, &respons, sizeof(respons), 0, results->ai_addr, results->ai_addrlen);
+        if(sent != sizeof(respons)){
           freeaddrinfo(results);
           close(sockfd);
-          break;
+          fprintf(stderr, "ERROR: sendto failed\n");
+          return EXIT_FAILURE;
         }
-        else if(byte_size == sizeof(calcMessage)){ //12 bytes
-          calcMessage respons;            
-          memcpy(&respons, buf, sizeof(respons));
-          uint16_t type = ntohs(respons.type);
-          uint32_t message = ntohl(respons.message);
-          uint16_t protocol = ntohs(respons.protocol);
-          uint16_t majorv= ntohs(respons.major_version);
-          uint16_t minorv = ntohs(respons.minor_version);
-
-          printf("Got calcMessage: type=%u, message=%u, proto=%u, major=%u, minor=%u\n",
-                type, message, protocol, majorv, minorv);
-
-          if(message == 1){
-            printf("Server reply: OK\n");
-            return EXIT_SUCCESS;
-          }       
-          if(message == 2){
-            printf("Server reply: NOT OK\n");
-            return EXIT_FAILURE;
-          }       
-        }
-        else if(byte_size == sizeof(calcProtocol)){ //26 bytes
-          calcProtocol respons;
-          memcpy(&respons, buf, sizeof(respons));
-
-          uint32_t arith = ntohl(respons.arith);
-          int32_t inValue1 = ntohl(respons.inValue1);
-          int32_t inValue2 = ntohl(respons.inValue2);
-          int32_t inResult = 0;
-            
-          if(arith == 1)
-            inResult = inValue1 + inValue2;
-          else if(arith == 2)
-            inResult = inValue1 - inValue2;
-          else if(arith == 3)
-            inResult= inValue1 * inValue2;
-          else if(arith == 4)
-            inResult= inValue1 / inValue2;
-
-          respons.type = htons(2);
-          respons.inResult = htonl(inResult);
-
-          ssize_t sent = sendto(sockfd, &respons, sizeof(respons), 0, results->ai_addr, results->ai_addrlen);
-          if(sent != sizeof(respons)){
-            freeaddrinfo(results);
-            close(sockfd);
-            fprintf(stderr, "ERROR: sendto failed\n");
-            return EXIT_FAILURE;
-          }
-            printf("Respons Size:%lu\n", sizeof(respons));
-          }
-          else{
-            printf("Byte_size:%lu\n", byte_size);
-            fprintf(stderr, "ERROR: wrong size or incorrect protocol\n");
-            return EXIT_FAILURE;
-          }
-        }
+      }
+      else{
+          printf("Byte_size:%lu\n", byte_size);
+          fprintf(stderr, "ERROR: wrong size or incorrect protocol\n");
+          return EXIT_FAILURE;
+      }
+    }
   }
 
   else if((strcmp(path, "TEXT") == 0) || (strcmp(path, "text") == 0)){
@@ -349,83 +321,65 @@ int udp_client(const char *host, const char *port, const char *path){
     int rc;
 
     while(true){
-        char buf[1500];
-        memset(&buf, 0, sizeof(buf));
-        struct sockaddr_storage addr;
-        socklen_t addr_len = sizeof(addr);
-        ssize_t byte_size;
+      char buf[1500];
+      memset(&buf, 0, sizeof(buf));
+      struct sockaddr_storage addr;
+      socklen_t addr_len = sizeof(addr);
+      ssize_t byte_size;
 
-        FD_ZERO(&reading);
-        FD_SET(sockfd, &reading);
-        memset(&timeout, 0, sizeof(timeout));
-        timeout.tv_sec = 2;
-        rc = select(sockfd+1, &reading, NULL, NULL, &timeout);
+      FD_ZERO(&reading);
+      FD_SET(sockfd, &reading);
+      memset(&timeout, 0, sizeof(timeout));
+      timeout.tv_sec = 2;
+      rc = select(sockfd+1, &reading, NULL, NULL, &timeout);
 
-        if(rc > 0){
-          byte_size = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr*)&addr, &addr_len);
-        }else if(rc == 0){
-            freeaddrinfo(results);
-            close(sockfd);
-            fprintf(stderr, "ERROR: TIMEOUT\n");
-            return EXIT_FAILURE;
-        }else{
-          perror("select");
-        }
+      if(rc > 0){
+        byte_size = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr*)&addr, &addr_len);
+      }else if(rc == 0){
+        freeaddrinfo(results);
+        close(sockfd);
+        fprintf(stderr, "ERROR: TIMEOUT\n");
+        return EXIT_FAILURE;
+      }else{
+        perror("select");
+      }
         
-        if(byte_size <= 0){
+      if(byte_size <= 0){
+        freeaddrinfo(results);
+        close(sockfd);
+        fprintf(stderr, "ERROR: recvfrom failed!\n");
+        return EXIT_FAILURE;
+      }
+      else if(byte_size == 3){
+        printf("%s", buf);
+        return EXIT_SUCCESS;
+      }
+      else if(byte_size == 7){
+        printf("ERROR");
+        return EXIT_FAILURE;
+      }
+      else{
+        char response[10];
+        char arith[4];
+        int v1, v2, result;
+
+        if(sscanf(buf, "%3s %d %d", arith, &v1, &v2) !=3){
+          printf("ERROR: sscanf failed");
+          return EXIT_FAILURE;
+        }
+
+        result = calc(arith, 0, v1, v2);
+
+        snprintf(response, sizeof(response), "%d\n", result);
+
+        ssize_t sent = sendto(sockfd, response, strlen(response), 0, results->ai_addr, results->ai_addrlen);
+        if(sent == -1){
           freeaddrinfo(results);
           close(sockfd);
-          fprintf(stderr, "ERROR: recvfrom failed!\n");
+          fprintf(stderr, "ERROR: sendto failed\n");
           return EXIT_FAILURE;
         }
-        else if(byte_size == 3){
-          printf("%s", buf);
-          return EXIT_SUCCESS;
-        }
-        else if(byte_size == 7){
-          printf("ERROR");
-          return EXIT_FAILURE;
-        }
-        else{
-          char response[10];
-          char arith[4];
-          int v1, v2, result;
-
-          if(sscanf(buf, "%3s %d %d", arith, &v1, &v2) == 3){
-            printf("ASSIGNMENT: %s %d %d\n", arith, v1, v2);
-          }
-          else {
-            fprintf(stderr, "ERROR: sscanf failed!\n");
-            return EXIT_FAILURE;
-          }
-
-          if(strcmp(arith, "add") == 0){
-            result = v1 + v2;
-          }
-          else if(strcmp(arith, "sub") == 0){
-            result = v1 - v2;
-          }
-          else if(strcmp(arith, "mul") == 0){
-            result = v1 * v2;
-          }
-          else if(strcmp(arith, "div") == 0){
-            result = v1 / v2;
-          }
-          else{
-            fprintf(stderr, "ERROR: invalid operation\n");
-            return EXIT_FAILURE;
-          }
-          printf("Calculated my result to: %d\n", result);
-          snprintf(response, sizeof(response), "%d\n", result);
-
-          ssize_t sent = sendto(sockfd, response, strlen(response), 0, results->ai_addr, results->ai_addrlen);
-          if(sent == -1){
-            freeaddrinfo(results);
-            close(sockfd);
-            fprintf(stderr, "ERROR: sendto failed\n");
-            return EXIT_FAILURE;
-          }
-        }
+      }
     }
   }
 
@@ -447,14 +401,14 @@ int tcp_client(const char *host, const char *port, const char *path){
     return EXIT_FAILURE;
   }
 
-  for(struct addrinfo *p = results; p != NULL; p = p->ai_next) {
+  for(struct addrinfo *p = results; p != NULL; p = p->ai_next){
     sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-    if(sockfd == -1) {
+    if(sockfd == -1){
       continue;
     }
 
     con = connect(sockfd, p->ai_addr, p->ai_addrlen);
-    if(con == -1) {
+    if(con == -1){
       close(sockfd);
       sockfd = -1;
       continue;
@@ -463,9 +417,7 @@ int tcp_client(const char *host, const char *port, const char *path){
   }
 
   if(sockfd == -1){
-    #ifdef DEBUG 
     fprintf(stderr, "ERROR: socket failed\n");
-    #endif
     return EXIT_FAILURE;
   }
   if(con == -1){
@@ -547,17 +499,9 @@ int tcp_client(const char *host, const char *port, const char *path){
       uint32_t arith = ntohl(respons.arith);
       int32_t inValue1 = ntohl(respons.inValue1);
       int32_t inValue2 = ntohl(respons.inValue2);
-      const char *arithText = NULL;
+      const char arithText[] = {};
 
-      switch (arith) {
-        case 1: arithText = "add"; break;
-        case 2: arithText = "sub"; break;
-        case 3: arithText = "mul"; break;
-        case 4: arithText = "div"; break;
-        default: break;
-      }
-
-      int res = calc(arithText, inValue1, inValue2);
+      int res = calc(arithText, arith, inValue1, inValue2);
 
       respons.type = htons(2);
       respons.inResult = htonl(res);
@@ -582,11 +526,11 @@ int tcp_client(const char *host, const char *port, const char *path){
       uint32_t message = ntohl(r2.message);
 
       if(message == 1){
-        printf("Server reply: OK\n");
+        printf("OK\n");
         return EXIT_SUCCESS;
       }       
       if(message == 2){
-        printf("Server reply: NOT OK\n");
+        printf("NOT OK\n");
         return EXIT_FAILURE;
       }  
 
@@ -668,7 +612,7 @@ int tcp_client(const char *host, const char *port, const char *path){
       return EXIT_FAILURE;
     }
 
-    int res = calc(arith, v1, v2);
+    int res = calc(arith, 0, v1, v2);
     snprintf(buf, sizeof(buf), "%d\n", res);
 
     sent = write(sockfd, buf, strlen(buf));
@@ -695,21 +639,24 @@ int tcp_client(const char *host, const char *port, const char *path){
   return EXIT_SUCCESS;
 }
 
-int calc(const char arith[], int v1, int v2){
+int calc(const char arith[], uint32_t arithNum, int32_t v1, int32_t v2){
   int result;
 
-
-  if(strcmp(arith, "add") == 0){
+  if(strcmp(arith, "add") == 0 || arithNum == 1){
     result = v1 + v2;
+    arith = "add";
   }
-  else if(strcmp(arith, "sub") == 0){
-    result = v1 - v2;      
+  else if(strcmp(arith, "sub") == 0 || arithNum == 2){
+    result = v1 - v2;
+    arith = "sub";      
   }
-  else if(strcmp(arith, "mul") == 0){
+  else if(strcmp(arith, "mul") == 0 || arithNum == 3){
     result = v1 * v2;
+    arith = "mul";
   }
-  else if(strcmp(arith, "div") == 0){
+  else if(strcmp(arith, "div") == 0 || arithNum == 4){
     result = v1 / v2;
+    arith = "div";
   }
   else{
     fprintf(stderr, "ERROR: invalid operation\n");
