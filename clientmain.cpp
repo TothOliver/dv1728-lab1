@@ -632,7 +632,8 @@ int tcp_client(const char *host, const char *port, const char *path){
       fprintf(stderr, "ERROR: read failed!\n");
       return EXIT_FAILURE;
     }
-    printf("%s (myresult=%d)\n", buf, res);
+    
+    printf("OK (myresult=%d)\n", res);
 
   }
 
