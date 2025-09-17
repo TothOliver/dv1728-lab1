@@ -21,7 +21,6 @@
 
 int udp_client(const char *host, const char *port, const char *path);
 int tcp_client(const char *host, const char *port, const char *path);
-
 int calc(const char arith[], uint32_t arithNum, int32_t v1, int32_t v2);
 
 int main(int argc, char *argv[]){
