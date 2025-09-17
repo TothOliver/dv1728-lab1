@@ -228,6 +228,7 @@ int udp_client(const char *host, const char *port, const char *path){
     fd_set reading;
     struct timeval timeout;
     int rc;
+    int32_t inResult = 0;
 
     while(true){
       char buf[1500];
@@ -266,7 +267,7 @@ int udp_client(const char *host, const char *port, const char *path){
         uint32_t message = ntohl(respons.message);
 
         if(message == 1){
-          printf("OK\n");
+          printf("OK (myresult=%d)\n", inResult);
           return EXIT_SUCCESS;
         }       
         if(message == 2){
