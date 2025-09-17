@@ -370,7 +370,6 @@ int udp_client(const char *host, const char *port, const char *path){
         }
 
         result = calc(arith, 0, v1, v2);
-
         snprintf(response, sizeof(response), "%d\n", result);
 
         ssize_t sent = sendto(sockfd, response, strlen(response), 0, results->ai_addr, results->ai_addrlen);
