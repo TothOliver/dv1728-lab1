@@ -665,7 +665,7 @@ int calc(const char arith[], uint32_t arithNum, int32_t v1, int32_t v2){
   return EXIT_FAILURE;
   }
 
-  printf("%s %d %d\n", arith, v1, v2);
+  printf("ASSIGNMENT: %s %d %d\n", arith, v1, v2);
 
   return result;
 }
