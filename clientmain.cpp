@@ -319,6 +319,7 @@ int udp_client(const char *host, const char *port, const char *path){
     fd_set reading;
     struct timeval timeout;
     int rc;
+    int32_t result = 0;
 
     while(true){
       char buf[1500];
@@ -351,7 +352,7 @@ int udp_client(const char *host, const char *port, const char *path){
         return EXIT_FAILURE;
       }
       else if(byte_size == 3){
-        printf("%s", buf);
+        printf("%s (myresult=%d)", buf, result);
         return EXIT_SUCCESS;
       }
       else if(byte_size == 7){
@@ -361,7 +362,7 @@ int udp_client(const char *host, const char *port, const char *path){
       else{
         char response[10];
         char arith[4];
-        int v1, v2, result;
+        int v1, v2;
 
         if(sscanf(buf, "%3s %d %d", arith, &v1, &v2) !=3){
           printf("ERROR: sscanf failed");
