@@ -526,7 +526,7 @@ int tcp_client(const char *host, const char *port, const char *path){
       uint32_t message = ntohl(r2.message);
 
       if(message == 1){
-        printf("OK\n");
+        printf("OK (myresult=%d)\n", res);
         return EXIT_SUCCESS;
       }       
       if(message == 2){
@@ -632,7 +632,7 @@ int tcp_client(const char *host, const char *port, const char *path){
       fprintf(stderr, "ERROR: read failed!\n");
       return EXIT_FAILURE;
     }
-    printf("%s", buf);
+    printf("%s (myresult=%d)\n", buf, res);
 
   }
 
@@ -664,7 +664,6 @@ int calc(const char arith[], uint32_t arithNum, int32_t v1, int32_t v2){
   }
 
   printf("%s %d %d\n", arith, v1, v2);
-  printf("Result: %d\n", result);
 
   return result;
 }
