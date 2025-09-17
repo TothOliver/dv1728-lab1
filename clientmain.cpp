@@ -16,7 +16,6 @@
 // Alternative, pass CFLAGS=-DDEBUG to make, make CFLAGS=-DDEBUG
 #define DEBUG
 
-
 // Included to get the support library
 #include <calcLib.h>
 
